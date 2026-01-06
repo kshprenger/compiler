@@ -16,11 +16,11 @@ RUN apt-get update && apt-get install -y \
     libssl-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Configure SSH for remote access
-RUN echo "root:root" | chpasswd
+RUN passwd -d root
 RUN mkdir /var/run/sshd
 RUN sed -i 's/#Port 22/Port 37080/' /etc/ssh/sshd_config
 RUN sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/sshd_config
+RUN echo "PermitEmptyPasswords yes" >> /etc/ssh/sshd_config
 
 USER root
 WORKDIR /root/compiler
