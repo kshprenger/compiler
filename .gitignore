@@ -1,3 +1,6 @@
 *.cache
 _build
 .DS_Store
+*.exe
+*.s
+test
