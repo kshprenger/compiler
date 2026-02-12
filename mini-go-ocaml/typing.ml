@@ -379,9 +379,9 @@ let construct_single_typed_declaration
         let v = new_var param_id.id param_id.loc param_typ in
         if param_id.id <> "_" then begin  (*Golang's underscore *)
           if Hashtbl.mem env_vars param_id.id then
-            errorm ~loc:param_id.loc "duplicate parameter %s" param_id.id;
+            errorm ~loc:param_id.loc "Duplicate parameter %s" param_id.id;
           Hashtbl.add env_vars param_id.id v;
-          (* Params considered used (they come from caller) *)
+          (* Params considered used *)
           v.v_used <- true
         end;
         v
