@@ -486,12 +486,12 @@ let file ~debug:b ((imp, dl) : Ast.pfile) : Tast.tfile =
   ) dl in
 
   (match Hashtbl.find_opt env_funcs "main" with
-   | None -> errorm "missing main function"
+   | None -> errorm "Missing main function"
    | Some main_fn ->
        if List.length main_fn.fn_params <> 0 then
-         errorm "main function should have no parameters";
+         errorm "Main function should have no parameters";
        if List.length main_fn.fn_typ <> 0 then
-         errorm "main function should have no return values");
+         errorm "Main function should have no return values");
 
   if imp && not !fmt_used then
     errorm "fmt imported but not used";
