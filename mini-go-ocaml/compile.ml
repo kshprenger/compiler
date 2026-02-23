@@ -14,6 +14,15 @@ let new_label =
 (* String constants labels *)
 let strings = Hashtbl.create 17
 
+let rec sizeof = function
+  | Tint | Tbool -> 8
+  | Tstring -> 8
+  | Tptr _ -> 8
+  | Tstruct s -> s.s_size
+  | Tnil -> 8
+  | Tmany _ -> 0
+
+
 let alloc_string s =
   if Hashtbl.mem strings s then
     Hashtbl.find strings s
@@ -39,6 +48,11 @@ let rec compile_expr e = match e.expr_desc with
       compile_unop op e
   | TEnil ->
       xorq (reg rax) (reg rax)
+  | TEnew typ ->
+    let size = sizeof typ in
+    movq (imm size) (reg rdi) ++
+    movq (imm 1) (reg rsi) ++
+    call "calloc_"
   | TEprint el ->
       iter compile_print el
   | TEblock el ->
