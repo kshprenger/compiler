@@ -1,4 +1,3 @@
-
 # Tests for the Mini Go project
 
 Tests are organized in various categories:
