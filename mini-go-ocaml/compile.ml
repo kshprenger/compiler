@@ -37,6 +37,8 @@ let rec compile_expr e = match e.expr_desc with
       compile_binop op e1 e2
   | TEunop (op, e) ->
       compile_unop op e
+  | TEnil ->
+      xorq (reg rax) (reg rax)
   | TEprint el ->
       iter compile_print el
   | TEblock el ->
@@ -67,14 +69,14 @@ and compile_addr e =
   | TEident v ->
     leaq (ind ~ofs:v.v_ofs rbp) rax
   | TEdot (e1, f) ->
-      (match e1.expr_typ with
-       | Tptr _ ->
-        compile_expr e1 ++
+    (match e1.expr_typ with
+      | Tptr _ ->
+      compile_expr e1 ++
+      (if f.f_ofs <> 0 then addq (imm f.f_ofs) (reg rax) else nop)
+      | Tstruct _ ->
+        compile_addr e1 ++
         (if f.f_ofs <> 0 then addq (imm f.f_ofs) (reg rax) else nop)
-       | Tstruct _ ->
-          compile_addr e1 ++
-          (if f.f_ofs <> 0 then addq (imm f.f_ofs) (reg rax) else nop)
-       | _ -> failwith "compile_addr: TEdot on non-struct type")
+      | _ -> failwith "compile_addr: TEdot on non-struct type")
   | TEunop (Ustar, e1) ->
       (* Address of ptr is just ptr *)
       compile_expr e1
