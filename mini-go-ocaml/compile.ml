@@ -35,6 +35,8 @@ let rec compile_expr e = match e.expr_desc with
       movq (ilab lbl) (reg rax)
   | TEbinop (op, e1, e2) ->
       compile_binop op e1 e2
+  | TEunop (op, e) ->
+      compile_unop op e
   | TEprint el ->
       iter compile_print el
   | TEblock el ->
@@ -43,6 +45,41 @@ let rec compile_expr e = match e.expr_desc with
       nop
   | _ ->
       failwith "compile_expr: not yet implemented"
+
+and compile_unop op e =
+  match op with
+  | Uneg ->
+    compile_expr e ++
+    negq (reg rax)
+  | Unot ->
+    compile_expr e ++
+    testq (reg rax) (reg rax) ++
+    movq (imm 0) (reg rax) ++
+    sete (reg al)
+  | Ustar ->
+    compile_expr e ++
+    movq (ind rax) (reg rax)
+  | Uamp ->
+    compile_addr e
+
+and compile_addr e =
+  match e.expr_desc with
+  | TEident v ->
+    leaq (ind ~ofs:v.v_ofs rbp) rax
+  | TEdot (e1, f) ->
+      (match e1.expr_typ with
+       | Tptr _ ->
+        compile_expr e1 ++
+        (if f.f_ofs <> 0 then addq (imm f.f_ofs) (reg rax) else nop)
+       | Tstruct _ ->
+          compile_addr e1 ++
+          (if f.f_ofs <> 0 then addq (imm f.f_ofs) (reg rax) else nop)
+       | _ -> failwith "compile_addr: TEdot on non-struct type")
+  | TEunop (Ustar, e1) ->
+      (* Address of ptr is just ptr *)
+      compile_expr e1
+  | _ ->
+      failwith "compile_addr: not an lvalue"
 
 and compile_binop op e1 e2 =
   match op with
