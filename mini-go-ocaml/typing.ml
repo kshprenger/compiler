@@ -241,7 +241,13 @@ let rec type_expr
         end else
           new_var "_" id.loc typ
       ) ids in
-      { expr_desc = Tast.TEvars vars; expr_typ = Tast.Tmany [] }
+      let decl_expr = { Tast.expr_desc = Tast.TEvars vars; expr_typ = Tast.Tmany [] } in
+      if num_inits > 0 then begin
+        let lhs = List.map (fun v -> { Tast.expr_desc = Tast.TEident v; expr_typ = v.v_typ }) vars in
+        let assign_expr = { Tast.expr_desc = Tast.TEassign (lhs, typed_inits); expr_typ = Tast.Tmany [] } in
+        { expr_desc = Tast.TEblock [decl_expr; assign_expr]; expr_typ = Tast.Tmany [] }
+      end else
+        decl_expr
 
   | Ast.PEbinop (op, e1, e2) ->
       let te1 = type_expr env_structs env_funcs env_vars return_types has_fmt e1 in

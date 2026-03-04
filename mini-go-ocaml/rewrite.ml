@@ -200,6 +200,21 @@ and many rw f el =
 and block rw = function
   | [] ->
      []
+  (* ======================= ADDED ======================= *)
+  (* This is just nested block case, almost the same as the next match arm *)
+  (* This case allows to see inside blocks: TEblock [...]  -> TEblock [TEvars vl; ...] *)
+  | { expr_desc = TEblock ({ expr_desc = TEvars (v :: _ as vl) } :: inner_bl) } :: bl
+      when is_struct v.v_typ || v.v_addr ->
+     let change rw ({v_typ = ty} as v) =
+       assert (is_struct ty || v.v_addr);
+       let v' = mkvar (Tptr ty) in
+       let e = stmt (TEassign ([ident v'], [make (TEnew ty) (Tptr ty)])) in
+       rw_add v (make (TEunop (Ustar, ident v')) ty) rw, (v', e) in
+     let rw, l = map_fold_left change rw vl in
+     stmt (TEvars (List.map fst l)) :: List.map snd l @ block rw (inner_bl @ bl)
+  | { expr_desc = TEblock ({ expr_desc = TEvars _ } :: _ as inner_bl) } :: bl ->
+     block rw (inner_bl @ bl)
+  (* ======================= ADDED ======================= *)
   | { expr_desc = TEvars (v :: _ as vl) } :: bl
       when is_struct v.v_typ || v.v_addr ->
      (* RW3 and RW4 *)
