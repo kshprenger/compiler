@@ -157,7 +157,7 @@ let rec compile_expr e = match e.expr_desc with
        | Tptr _ ->
            compile_expr e1 ++
            testq (reg rax) (reg rax) ++
-           jz "error_nil" ++
+           jz "graceful_stop" ++
            compile_load_field f.f_ofs f.f_typ
        | Tstruct _ ->
            compile_addr e1 ++
@@ -249,7 +249,7 @@ and compile_addr e =
        | Tptr _ ->
            compile_expr e1 ++
            testq (reg rax) (reg rax) ++
-           jz "error_nil" ++
+           jz "graceful_stop" ++
            (if f.f_ofs <> 0 then addq (imm f.f_ofs) (reg rax) else nop)
        | Tstruct _ ->
            compile_addr e1 ++
@@ -258,7 +258,7 @@ and compile_addr e =
   | TEunop (Ustar, e1) ->
       compile_expr e1 ++
       testq (reg rax) (reg rax) ++
-      jz "error_nil"
+      jz "graceful_stop"
   | _ ->
       failwith "compile_addr: not an lvalue"
 
@@ -275,7 +275,7 @@ and compile_unop op e =
   | Ustar ->
       compile_expr e ++
       testq (reg rax) (reg rax) ++
-      jz "error_nil" ++
+      jz "graceful_stop" ++
       (match e.expr_typ with
        | Tptr inner ->
            let inner_size = sizeof inner in
@@ -305,7 +305,7 @@ and compile_binop op e1 e2 =
       compile_expr e1 ++
       popq rbx ++
       testq (reg rbx) (reg rbx) ++
-      jz "error_div_zero" ++
+      jz "graceful_stop" ++
       cqto ++
       idivq (reg rbx) ++
       (if op = Bmod then movq (reg rdx) (reg rax) else nop)
@@ -610,10 +610,7 @@ let file ?debug:(b=false) (dl: Tast.tfile): X86_64.program =
         xorq (reg rax) (reg rax) ++
         ret ++
         func_code ++
-        label "error_nil" ++
-        movq (imm 1) (reg rdi) ++
-        call "exit_" ++
-        label "error_div_zero" ++
+        label "graceful_stop" ++
         movq (imm 1) (reg rdi) ++
         call "exit_"
     ++ inline "
