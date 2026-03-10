@@ -80,22 +80,6 @@ let rec allocate_locals_expr ofs e =
   | TEincdec (e1, _) ->
       allocate_locals_expr ofs e1
 
-let allocate_params fn =
-  let num_params = List.length fn.fn_params in
-  List.iteri (fun i v ->
-    let size = sizeof v.v_typ in
-    if v.v_addr then begin
-      v.v_ofs <- -8 * (i + 1)
-    end else begin
-      if i < 6 then
-        v.v_ofs <- -8 * (i + 1)
-      else
-        v.v_ofs <- 16 + 8 * (i - 6)
-    end;
-    ignore size
-  ) fn.fn_params;
-  -8 * (min num_params 6)
-
 let param_regs = [| rdi; rsi; rdx; rcx; r8; r9 |]
 
 let rec get_types_list el =
