@@ -104,7 +104,7 @@ let rec compile_expr e = match e.expr_desc with
   | TEunop (op, e) ->
       compile_unop op e
   | TEnil ->
-      xorq (reg rax) (reg rax)
+      xorq (reg rax) (reg rax) (* ~ NULL*)
   | TEnew typ ->
       let size = sizeof typ in
       movq (imm size) (reg rdi) ++
