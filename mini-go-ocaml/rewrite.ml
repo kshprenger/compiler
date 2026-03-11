@@ -201,8 +201,10 @@ and block rw = function
   | [] ->
      []
   (* ======================= ADDED ======================= *)
-  (* This is just nested block case, almost the same as the next match arm *)
+  (* This check case for var declaration WITH initializer *)
   (* This case allows to see inside blocks: TEblock [...]  -> TEblock [TEvars vl; ...] *)
+  (* "var dico *BST = nil", for example *)
+  (* TEblock [TEvars [dico]; TEassign ([dico], [nil])] *)
   | { expr_desc = TEblock ({ expr_desc = TEvars (v :: _ as vl) } :: inner_bl) } :: bl
       when is_struct v.v_typ || v.v_addr ->
      let change rw ({v_typ = ty} as v) =
