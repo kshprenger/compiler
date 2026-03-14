@@ -8,7 +8,7 @@ Struct types are resolved in three separate passes over the declaration list bef
 
 1. **Phase 1** registers all struct names (empty shells) into `env_structs`, ensuring uniqueness.
 2. **Phase 2** populates each struct's fields, resolving field types against the now-complete struct name table. This two-phase approach allows structs to reference each other (e.g. `A` has a field of type `*B` and `B` has a field of type `*A`) without requiring forward declarations.
-3. **Phase 3** (`check_recursive_structs`) performs a DFS over field types to detect illegal direct recursion (e.g. struct `S` containing a field of type `S`), while still permitting pointer-based recursion (`*S`).
+3. **Phase 3** (`check_recursive_structs`) performs a DFS over field types to detect illegal direct recursion (e.g. struct `S` containing a field of type `S`), while still permitting pointer-based recursion (`*S`). Separated for distinct phase for purpose of cleaner code.
 
 ### Scope management with a stack of hash tables
 
