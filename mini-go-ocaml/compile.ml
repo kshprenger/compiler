@@ -14,6 +14,7 @@ let new_label =
 let strings = Hashtbl.create 17
 
 let current_fn_name = ref ""
+let current_fn_num_params = ref 0
 
 let rec sizeof = function
   | Tint | Tbool -> 8
@@ -80,7 +81,6 @@ let rec allocate_locals_expr ofs e =
   | TEincdec (e1, _) ->
       allocate_locals_expr ofs e1
 
-let param_regs = [| rdi; rsi; rdx; rcx; r8; r9 |]
 
 let rec get_types_list el =
   List.concat_map (fun e ->
@@ -117,19 +117,20 @@ let rec compile_expr e = match e.expr_desc with
   | TEreturn [] ->
       jmp ("F_" ^ !current_fn_name ^ "_ret")
   | TEreturn exprs ->
+      let np = !current_fn_num_params in
       let code = List.fold_left (fun (code, idx) e ->
         match e.expr_typ with
         | Tmany tl ->
             let n = List.length tl in
             let load_code = List.fold_left (fun (c, i) _ ->
               let c = c ++ movq (ind ~ofs:(8 * i) rax) (reg r10) ++
-                      movq (reg r10) (ind ~ofs:(16 + 8 * (idx + i)) rbp) in
+                      movq (reg r10) (ind ~ofs:(16 + 8 * (np + idx + i)) rbp) in
               (c, i + 1)
             ) (nop, 0) tl in
             (code ++ compile_expr e ++ fst load_code, idx + n)
         | _ ->
             (code ++ compile_expr e ++
-             movq (reg rax) (ind ~ofs:(16 + 8 * idx) rbp),
+             movq (reg rax) (ind ~ofs:(16 + 8 * (np + idx)) rbp),
              idx + 1)
       ) (nop, 0) exprs in
       fst code ++
@@ -480,58 +481,31 @@ and compile_call fn args =
   let num_args = List.length arg_types in
   let num_rets = List.length fn.fn_typ in
   let ret_space = num_rets * 8 in
-  let stack_args = if num_args > 6 then num_args - 6 else 0 in
-  let stack_arg_space = stack_args * 8 in
+  let stack_arg_space = num_args * 8 in
   let total_stack = ret_space + stack_arg_space in
   let padding = if total_stack mod 16 <> 0 then 8 else 0 in
   (if padding > 0 then subq (imm padding) (reg rsp) else nop) ++
   (if ret_space > 0 then subq (imm ret_space) (reg rsp) else nop) ++
   (if List.length args = 1 && List.length arg_types > 1 then begin
     let e = List.hd args in
+    let n = List.length arg_types in
     compile_expr e ++
     movq (reg rax) (reg r12) ++
-    (let result, _ = List.fold_left (fun (code, idx) _ ->
-      let code =
-        if idx < 6 then
-          code ++ movq (ind ~ofs:(8 * idx) r12) (reg param_regs.(idx))
-        else
-          code ++ movq (ind ~ofs:(8 * idx) r12) (reg r10) ++
-          pushq (reg r10)
-      in
-      (code, idx + 1)
-    ) (nop, 0) arg_types in result)
+    (let rec push_loop i =
+       if i < 0 then nop
+       else
+         movq (ind ~ofs:(8 * i) r12) (reg r10) ++
+         pushq (reg r10) ++
+         push_loop (i - 1)
+     in
+     push_loop (n - 1))
   end else begin
-    let push_stack_args =
-      if num_args > 6 then
-        let stack_arg_exprs = List.filteri (fun i _ -> i >= 6) args in
-        let stack_arg_exprs_rev = List.rev stack_arg_exprs in
-        List.fold_left (fun code e ->
-          code ++
-          compile_expr e ++
-          pushq (reg rax)
-        ) nop stack_arg_exprs_rev
-      else
-        nop
-    in
-    let load_reg_args =
-      let reg_arg_exprs = List.filteri (fun i _ -> i < 6) args in
-      let n = List.length reg_arg_exprs in
-      if n = 0 then nop
-      else begin
-        let push_all = List.fold_left (fun code e ->
-          code ++ compile_expr e ++ pushq (reg rax)
-        ) nop reg_arg_exprs in
-        let pop_to_regs =
-          let rec pop_loop i =
-            if i < 0 then nop
-            else popq param_regs.(i) ++ pop_loop (i - 1)
-          in
-          pop_loop (n - 1)
-        in
-        push_all ++ pop_to_regs
-      end
-    in
-    push_stack_args ++ load_reg_args
+    let args_rev = List.rev args in
+    List.fold_left (fun code e ->
+      code ++
+      compile_expr e ++
+      pushq (reg rax)
+    ) nop args_rev
   end) ++
   call ("F_" ^ fn.fn_name) ++
   (if stack_arg_space > 0 then addq (imm stack_arg_space) (reg rsp) else nop) ++
@@ -549,27 +523,17 @@ let compile_decl = function
   | TDfunction (fn, body) ->
       current_fn_name := fn.fn_name;
       let num_params = List.length fn.fn_params in
-      let num_rets = List.length fn.fn_typ in
+      current_fn_num_params := num_params;
       List.iteri (fun i v ->
-        if i < 6 then
-          v.v_ofs <- -8 * (i + 1)
-        else
-          v.v_ofs <- 16 + 8 * (num_rets + (i - 6))
+        v.v_ofs <- 16 + 8 * i
       ) fn.fn_params;
-      let param_space = 8 * (min num_params 6) in
-      let local_ofs = allocate_locals_expr (-param_space) body in
+      let local_ofs = allocate_locals_expr 0 body in
       let frame_size = -local_ofs in
       let aligned_frame = if frame_size mod 16 = 0 then frame_size else frame_size + 8 in
       label ("F_" ^ fn.fn_name) ++
       pushq (reg rbp) ++
       movq (reg rsp) (reg rbp) ++
       (if aligned_frame > 0 then subq (imm aligned_frame) (reg rsp) else nop) ++
-      iter2 (fun i v ->
-        if i < 6 then
-          movq (reg param_regs.(i)) (ind ~ofs:v.v_ofs rbp)
-        else
-          nop
-      ) (List.mapi (fun i v -> i) fn.fn_params) fn.fn_params ++
       compile_expr body ++
       label ("F_" ^ fn.fn_name ^ "_ret") ++
       movq (reg rbp) (reg rsp) ++
