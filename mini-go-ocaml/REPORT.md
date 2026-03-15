@@ -1,4 +1,4 @@
-# Mini-Go Compiler -- Report
+# Mini-Go Compiler
 
 ## 1. Typing
 
@@ -8,7 +8,7 @@ Struct types are resolved in three separate passes over the declaration list bef
 
 1. **Phase 1** registers all struct names as empty shells into `env_structs`, ensuring uniqueness and making every struct name visible to subsequent passes.
 2. **Phase 2** populates each struct's fields, resolving field types against the now-complete struct name table. This two-phase approach allows mutually referential structs (e.g. `A` has a field of type `*B` and `B` has a field of type `*A`) without requiring forward declarations.
-3. **Phase 3** (`check_recursive_structs`) performs a DFS over field types to detect illegal direct value recursion (e.g. struct `S` with a field of type `S`), while allowing pointer-based recursion (`*S`). It is a separate pass to keep the recursive-check logic isolated from field resolution.
+3. **Phase 3** (`check_recursive_structs`) performs a DFS over field types to detect illegal direct value recursion, while allowing pointer-based recursion (`*S`). It is a separate pass to keep the recursive-check logic isolated from field resolution.
 
 ### Scope management with a stack of hash tables
 
