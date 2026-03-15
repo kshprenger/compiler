@@ -26,10 +26,6 @@ The `type_assignable` predicate encodes Go's rule that `nil` is a valid value fo
 
 `is_returns` recursively verifies that all control paths through a function body terminate with a `return`. An `if` statement satisfies this only when both its `then` and `else` branches return. `for` loops are conservatively treated as non-returning because the compiler cannot statically prove that the loop body executes at least once. This is consistent with Go's specification.
 
-### Variable declarations with initializers
-
-`PEvars` handles both `var x T` (default-initialized) and `var x T = e` (explicit initializer). When no type annotation is given, the type is inferred from the initializer expression. Internally, a declaration with an initializer is desugared into `TEblock [TEvars vars; TEassign (vars, inits)]` -- a block that first declares the variables and then immediately assigns them. This representation is significant for the rewrite pass.
-
 ## 2. AST Rewriting (`rewrite.ml`) -- ADDED Section
 
 The added section introduces two extra match cases in the `block` function to handle **variable declarations wrapped inside a nested `TEblock`**. This wrapping occurs whenever `typing.ml` desugars a declaration with an initializer, producing:
