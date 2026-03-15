@@ -52,28 +52,28 @@ A concrete example: `var dico *BST = nil` produces `TEblock [TEvars [dico]; TEas
 
 ### Stack-only calling convention
 
-All function parameters are passed exclusively on the stack; no System V AMD64 register arguments are used. This simplifies code generation at the cost of slightly higher memory traffic.
+All function parameters are passed exclusively on the stack; no register arguments are used.
 
-**Caller side (`compile_call`):**
+**Caller side:**
 
 1. Optionally pad the stack to maintain 16-byte alignment before the call.
 2. Reserve space for return values by subtracting `ret_space` from `%rsp`.
 3. Push all arguments right-to-left so that the first argument ends up at the lowest address above the return slots.
-4. Emit `call F_name`.
+4. `call F_name`.
 5. Reclaim argument space by adding `stack_arg_space` back to `%rsp`.
 6. Read return values from the top of the stack.
 
-**Callee side (`compile_decl`):**
+**Callee side:**
 
-After the standard prologue (`push %rbp; mov %rsp, %rbp`), parameters are at positive offsets from `%rbp` (they live in the caller's frame above the saved return address and saved `%rbp`), and local variables occupy negative offsets. The first parameter is at `[%rbp + 16]`, subsequent parameters at `[%rbp + 16 + 8*i]`, and the return slot (if any) immediately above the last parameter. Local variable offsets are computed by `allocate_locals_expr 0 body`, which walks the body and assigns a negative offset to each declared local.
+Parameters are at positive offsets from `%rbp` (they live in the caller's frame above the saved return address and saved `%rbp`), and local variables occupy negative offsets. The first parameter is at `[%rbp + 16]`, subsequent parameters at `[%rbp + 16 + 8*i]`, and the return slot (if any) immediately above the last parameter. Local variable offsets are computed by `allocate_locals_expr 0 body`, which walks the body and assigns a negative offset to each declared local.
 
 ### Return value mechanism
 
-For single-return functions, `TEreturn [e]` evaluates the expression and stores the result at the return slot `[%rbp + 16 + 8 * num_params]` in the caller's frame before jumping to the epilogue. The caller then reads the value from the top of the stack after the `call` returns. For void functions (`TEreturn []`), the epilogue is reached directly without any store.
+For single-return functions, `TEreturn [e]` evaluates the expression and stores the result at the return slot `[%rbp + 16 + 8 * num_params]` in the caller's frame before jumping to the end. The caller then reads the value from the top of the stack after the `call` returns. For void functions (`TEreturn []`), the end is reached directly without any store.
 
 ### Null pointer safety
 
-Before every pointer dereference, the compiler emits a null check: it loads the pointer into `%rax`, executes `testq %rax, %rax`, and jumps to `graceful_stop` if the result is zero. This check is inserted at three points: field access through a pointer (`TEdot` when the expression has type `Tptr`), explicit pointer dereference (`Ustar`), and address computation through a pointer in `compile_addr`. The `graceful_stop` routine calls `exit(1)`, producing a clean error exit rather than a segmentation fault.
+Before every pointer dereference, the compiler runs a null check: it loads the pointer into `%rax`, executes `testq %rax, %rax`, and jumps to `graceful_stop` if the result is zero. This check is inserted at three points: field access through a pointer (`TEdot` when the expression has type `Tptr`), explicit pointer dereference (`Ustar`), and address computation through a pointer in `compile_addr`. The `graceful_stop` label calls `exit(1)`, producing a graceful exit rather than a segfault.
 
 ### Testing
 
